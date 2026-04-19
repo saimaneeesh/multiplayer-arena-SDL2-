@@ -117,11 +117,11 @@ multiplayer-arena/
 
 *Gravity mode*
 
-![alt text](sky.png.png)
+![Gravity](assets/images/sky_.png)
 
 *Zero Gravity mode*
 
-![alt text](sapce_.png.png)
+![Zero Gravity](assets/images/space_.png)
 ---
 
 ## Future Improvements
