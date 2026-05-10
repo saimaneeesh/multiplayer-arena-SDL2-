@@ -1,0 +1,3 @@
+build/
+*.eve
+.DS_Store

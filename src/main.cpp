@@ -1,70 +1,82 @@
 #define SDL_MAIN_HANDLED
 
-#include <SDL2/SDL.h>
-#include <SDL2/SDL_image.h>
+#include <SDL.h>
+#include <SDL_image.h>
 #include <iostream>
 #include <vector>
 #include <algorithm>
 #include <cmath>
+#include "player.h"
+#include "block.h"
+#include "transform.h"
+#include "bullet.h"
+#include "input.h"
 
-struct Transform
-{
-    float x, y;
-    float rotation;
-    float scaleX, scaleY;
-};
 
-struct Player
-{
-    Transform transform;
-    int width;
-    int height;
-    float velocityX;
-    float velocityY;
-    int health = 100;
-    int score = 0;;
-};
+bool isOverlapping(const Player& a, const Block& b)
+        {
+            float aLeft   = a.transform.x - a.width / 2.0f;
+            float aRight  = a.transform.x + a.width / 2.0f;
+            float aTop    = a.transform.y - a.height / 2.0f;
+            float aBottom = a.transform.y + a.height / 2.0f;
 
-struct Block
-{
-    Transform transform;
-    int width;
-    int height;
-};
+            float bLeft   = b.transform.x - b.width / 2.0f;
+            float bRight  = b.transform.x + b.width / 2.0f;
+            float bTop    = b.transform.y - b.height / 2.0f;
+            float bBottom = b.transform.y + b.height / 2.0f;
 
-struct Bullet
+            return (aRight > bLeft &&
+                    aLeft  < bRight &&
+                    aBottom > bTop &&
+                    aTop    < bBottom);
+        }
+
+bool isOverlappingPlayer(const Player& a, const Player& b)
 {
-    Transform transform;
-    int size;
-    float velocityX;
-    float velocityY;
-};
+    float aLeft   = a.transform.x - a.width / 2.0f;
+    float aRight  = a.transform.x + a.width / 2.0f;
+    float aTop    = a.transform.y - a.height / 2.0f;
+    float aBottom = a.transform.y + a.height / 2.0f;
+
+    float bLeft   = b.transform.x - b.width / 2.0f;
+    float bRight  = b.transform.x + b.width / 2.0f;
+    float bTop    = b.transform.y - b.height / 2.0f;
+    float bBottom = b.transform.y + b.height / 2.0f;
+
+    return (aRight > bLeft &&
+            aLeft  < bRight &&
+            aBottom > bTop &&
+            aTop    < bBottom);
+}
+ 
 int main()
 {
-    Player player;
+    std::vector<Player> players;
     std::vector<Block> blocks;
     std::vector<Bullet> bullets;
+    
     Block block1;
     Block block2;
     Block block3;
     Block block4;
-    
-    player.health = 100;
-    player.transform.x = 400;
-    player.transform.y = 300;
-    player.width = 10;
-    player.height = 10;
-    player.velocityX = 0;
-    player.velocityY = 0;
 
-    Player player1;
-    player1.health = 100;
-    player1.transform.x = 600;
-    player1.transform.y = 200;
-    player1.width = 10;
-    player1.height = 10;
-    player1.velocityX = 0;
-    player1.velocityY = 0;
+    players.emplace_back();
+    players.emplace_back();
+    players[0].health = 100;
+    players[0].transform.x = 400;
+    players[0].transform.y = 300;
+    players[0].width = 10;
+    players[0].height = 10;
+    players[0].velocityX = 0;
+    players[0].velocityY = 0;
+
+    players[1].health = 100;
+    players[1].transform.x = 600;
+    players[1].transform.y = 200;
+    players[1].width = 10;
+    players[1].height = 10;
+    players[1].velocityX = 0;
+    players[1].velocityY = 0;
     
     block1.transform.x = 400;
     block1.transform.y = 200;
@@ -91,22 +103,19 @@ int main()
     blocks.push_back(block3);       
     blocks.push_back(block4);
 
+    std::vector<Input> inputs(players.size());
+
     float gravity = 1500.0f;
-    bool isGrounded = false;
     float thrust = 3500.0f;
     float drag = 3.0f;
-    
-    
+        
     SDL_Rect arena;
 
     arena.x = 50;
     arena.y = 50;
     arena.w = 700;
     arena.h = 500;
-    float leftBoundary = arena.x + player.width/2;
-    float rightBoundary = arena.x + arena.w - player.width/2;
-    float topBoundary = arena.y + player.height/2;
-    float bottomBoundary = arena.y + arena.h - player.height/2;
+
 
     SDL_Init(SDL_INIT_VIDEO);
     IMG_Init(IMG_INIT_PNG);
@@ -131,15 +140,13 @@ int main()
     SDL_Event event;
 
     Uint32 lastTime = SDL_GetTicks();
-    
+
     float shootCooldown = 0.45f;
-    float shootTimer = 0.0f;
     bool zerogravity = false;
 
     SDL_Texture* background = IMG_LoadTexture(renderer, "assets/images/sky.jpg");
     SDL_Texture* spaceBg   = IMG_LoadTexture(renderer, "assets/images/space.jpg");
         
-
     while(running)
     {
         while(SDL_PollEvent(&event))
@@ -150,68 +157,66 @@ int main()
         Uint32 currentTime = SDL_GetTicks();
         float deltaTime = (currentTime - lastTime) / 1000.0f;
         lastTime = currentTime; 
+        float damping = 3.0f;
 
         const Uint8* keystate = SDL_GetKeyboardState(NULL);
 
-        
-        isGrounded = false;
-        shootTimer -= deltaTime;
+        for(auto& player : players)
+        {
+            player.isGrounded = false;
+        }
+        for(auto& player : players)
+        {
+            player.shootTimer -= deltaTime;
+        }
         int mouseX, mouseY;
         SDL_GetMouseState(&mouseX, &mouseY);
-        float dirX = mouseX - player.transform.x;
-        float dirY = mouseY - player.transform.y;
-        float length = sqrt(dirX * dirX + dirY * dirY);
-        if (length != 0)
-        {               
-        dirX /= length;
-        dirY /= length;
-        }
+    
+       
 
         float bulletSpeed = 1000.0f;
 
-        if (keystate[SDL_SCANCODE_SPACE] && shootTimer <= 0.0f)
+        inputs[0].up    = keystate[SDL_SCANCODE_W];
+        inputs[0].down  = keystate[SDL_SCANCODE_S];
+        inputs[0].left  = keystate[SDL_SCANCODE_A];
+        inputs[0].right = keystate[SDL_SCANCODE_D];
+        inputs[0].shoot = keystate[SDL_SCANCODE_SPACE];
+
+        inputs[1].up    = keystate[SDL_SCANCODE_UP];
+        inputs[1].down  = keystate[SDL_SCANCODE_DOWN];
+        inputs[1].left  = keystate[SDL_SCANCODE_LEFT];
+        inputs[1].right = keystate[SDL_SCANCODE_RIGHT];
+        inputs[1].shoot = keystate[SDL_SCANCODE_R];
+
+        for(int i = 0; i < players.size(); i++)
         {
-            Bullet b;
-                float spawnOffset = 10;
-                float recoilforce = 5.0f;
-                b.size = 4;  
+            if(inputs[i].shoot && players[i].shootTimer <= 0.0f)
+            {
+                Bullet b;
+                float dirX = mouseX - players[i].transform.x;
+                float dirY = mouseY - players[i].transform.y;
 
-                if(zerogravity)
-                    recoilforce = 200;
+                float length = sqrt(dirX * dirX + dirY * dirY);
 
-                player.velocityX -= dirX * recoilforce;
-                player.velocityY -= dirY * recoilforce  ;
+                b.size = 4;
 
-                b.transform.x = player.transform.x + dirX * spawnOffset;
-                b.transform.y = player.transform.y + dirY * spawnOffset; 
+                if(length != 0){
+                    dirX /= length;
+                    dirY /= length;
+                }
+
+                b.transform.x = players[i].transform.x;
+                b.transform.y = players[i].transform.y; 
 
                 b.velocityX = dirX * bulletSpeed;
                 b.velocityY = dirY * bulletSpeed;
+                b.ownerId = i;
+                
                 bullets.push_back(b);
-                shootTimer = shootCooldown;   
+                players[i].shootTimer = shootCooldown;   
+            }
         }
-
-        if (keystate[SDL_SCANCODE_R] && shootTimer <= 0.0f)
-        {
-            Bullet b1;
-                float spawnOffset = 10;
-                float recoilforce = 5.0f;
-                b1.size = 4;  
-
-                if(zerogravity)
-                    recoilforce = 200;
-
-                player1.velocityX -= dirX * recoilforce;
-                player1.velocityY -= dirY * recoilforce ;
-
-                b1.transform.x = player1.transform.x + dirX * spawnOffset;
-                b1.transform.y = player1.transform.y + dirY * spawnOffset; 
-
-                b1.velocityX = dirX * bulletSpeed;
-                b1.velocityY = dirY * bulletSpeed;
-                bullets.push_back(b1);
-                shootTimer = shootCooldown;   
-        }
+    
         if (keystate[SDL_SCANCODE_G])
         {
             zerogravity = true;
@@ -220,41 +225,31 @@ int main()
         {
             zerogravity = false;
         }
-        
-        if (!zerogravity)
-        {
-            if (keystate[SDL_SCANCODE_W])
-                player.velocityY -= thrust * deltaTime;
 
-            if (keystate[SDL_SCANCODE_S])
-                player.velocityY += thrust * deltaTime;
+        for(int i = 0; i<players.size(); i++){
 
-            if (keystate[SDL_SCANCODE_A])
-                player.velocityX -= thrust * deltaTime;
-
-            if (keystate[SDL_SCANCODE_D])
-                player.velocityX += thrust * deltaTime;
-            if (keystate[SDL_SCANCODE_UP])
-                player1.velocityY -= thrust * deltaTime;
-
-            if (keystate[SDL_SCANCODE_DOWN])
-                player1.velocityY += thrust * deltaTime;
-
-            if (keystate[SDL_SCANCODE_LEFT])
-                player1.velocityX -= thrust * deltaTime;
-
-            if (keystate[SDL_SCANCODE_RIGHT])
-                player1.velocityX += thrust * deltaTime;
+            if(!zerogravity){
+                if(inputs[i].up){
+                    players[i].velocityY -= thrust * deltaTime;
+                }
+                if(inputs[i].down){
+                    players[i].velocityY += thrust * deltaTime;
+                }
+                if(inputs[i].left){
+                    players[i].velocityX -= thrust * deltaTime;
+                }   
+                if(inputs[i].right){
+                    players[i].velocityX += thrust * deltaTime;
+                }
+            }
         }
-
-      
-            
+             
         for (int i = 0; i < bullets.size(); i++)
         {
             Bullet &b = bullets[i];
             b.transform.x += b.velocityX * deltaTime;
             b.transform.y += b.velocityY * deltaTime;
-
+        
             bool bulletDead = false;
 
             for (const Block& block : blocks)
@@ -282,25 +277,21 @@ int main()
                 }
                 
             }
-
-            if (b.transform.x < leftBoundary ||
-                    b.transform.x > rightBoundary ||   
-                    b.transform.y < topBoundary ||
-                    b.transform.y > bottomBoundary)
-                {
-                    bulletDead = true;
-                }
-                
-            float enemyLeft   = player1.transform.x - player1.width/2;
-            float enemyRight  = player1.transform.x + player1.width/2;
-            float enemyTop    = player1.transform.y - player1.height/2;
-            float enemyBottom = player1.transform.y + player1.height/2;
             
-            float eLeft   = player.transform.x - player.width/2;
-            float eRight  = player.transform.x + player.width/2;
-            float eTop    = player.transform.y - player.height/2;
-            float eBottom = player.transform.y + player.height/2;
-
+            if (b.transform.x < arena.x ||
+                b.transform.x > arena.x + arena.w ||
+                b.transform.y < arena.y ||
+                b.transform.y > arena.y + arena.h)
+            {
+                bulletDead = true;
+            }
+            for(auto& player : players)
+            {   
+            float enemyLeft   = player.transform.x - player.width/2;
+            float enemyRight  = player.transform.x + player.width/2;
+            float enemyTop    = player.transform.y - player.height/2;
+            float enemyBottom = player.transform.y + player.height/2;
+            
             float bulletLeft   = b.transform.x - b.size/2;
             float bulletRight  = b.transform.x + b.size/2;
             float bulletTop    = b.transform.y - b.size/2;
@@ -311,34 +302,19 @@ int main()
                 bulletLeft   < enemyRight &&
                 bulletBottom > enemyTop &&
                 bulletTop    < enemyBottom;     
-            bool ehit = 
-                bulletRight  > eLeft &&
-                bulletLeft   < eRight &&
-                bulletBottom > eTop &&
-                bulletTop    < eBottom;   
+            
             if(hit)
-            {
-                player1.health -= 10;
-                bulletDead = true;
-            }  
-            if(ehit)
             {
                 player.health -= 10;
                 bulletDead = true;
-            }
-            if(player1.health <= 0)
-            {
-                player1.transform.x = 400;
-                player1.transform.y = 300;
-                player1.health = 100;
-                player.score += 10;
-            }
+            }  
             if(player.health <= 0)
             {
                 player.transform.x = 400;
                 player.transform.y = 300;
                 player.health = 100;
-                player1.score += 10;
+               players[b.ownerId].score += 10;
+            }
             }
             if (bulletDead)
                 {
@@ -347,243 +323,114 @@ int main()
                 }
 
         }
-
-        if (!zerogravity)
-        {
-            player.velocityY += gravity * deltaTime;
-        }
-        if (!zerogravity)
-        {
-            player1.velocityY += gravity * deltaTime;
-        }
+for(auto& player : players)
+{
+    if(!zerogravity)
+        player.velocityY += gravity * deltaTime;
+}
         float maxSpeedX = 600.0f;
         float maxSpeedY = 800.0f;
 
-        if(player.velocityX > maxSpeedX) player.velocityX = maxSpeedX;
-        if(player.velocityX < -maxSpeedX) player.velocityX = -maxSpeedX;
+for(auto& player : players)
+{
+    if(player.velocityX > maxSpeedX) player.velocityX = maxSpeedX;
+    if(player.velocityX < -maxSpeedX) player.velocityX = -maxSpeedX;
 
-        if(player.velocityY > maxSpeedY) player.velocityY = maxSpeedY;
-        if(player.velocityY < -maxSpeedY) player.velocityY = -maxSpeedY;
+    if(player.velocityY > maxSpeedY) player.velocityY = maxSpeedY;
+    if(player.velocityY < -maxSpeedY) player.velocityY = -maxSpeedY;
+}
+  
+        for(auto& player : players)
+{
+    // movement
+    player.transform.x += player.velocityX * deltaTime;
+    player.transform.y += player.velocityY * deltaTime;
 
+    // damping
+    player.velocityX -= player.velocityX * damping * deltaTime;
+    player.velocityY -= player.velocityY * damping * deltaTime;
 
+    // boundaries
+    float leftBoundary   = arena.x + player.width / 2;
+    float rightBoundary  = arena.x + arena.w - player.width / 2;
+    float topBoundary    = arena.y + player.height / 2;
+    float bottomBoundary = arena.y + arena.h - player.height / 2;
 
-        player.transform.x += player.velocityX * deltaTime;
-        player1.transform.x += player1.velocityX * deltaTime;
-        
+    if(player.transform.x < leftBoundary)
+    {
+        player.transform.x = leftBoundary;
+        player.velocityX = 0;
+    }
 
-        for (const Block& block : blocks){
+    if(player.transform.x > rightBoundary)
+    {
+        player.transform.x = rightBoundary;
+        player.velocityX = 0;
+    }
+
+    if(player.transform.y < topBoundary)
+    {
+        player.transform.y = topBoundary;
+        player.velocityY = 0;
+    }
+
+    if(player.transform.y > bottomBoundary)
+    {
+        player.transform.y = bottomBoundary;
+        player.velocityY = 0;
+        player.isGrounded = true;
+    }
+}
+
+        for(auto& player : players)
+        {   
+            for (const Block& block : blocks){
             
-            float playerLeft   = player.transform.x - player.width / 2.0f;
-            float playerRight  = player.transform.x + player.width / 2.0f;
-            float playerTop    = player.transform.y - player.height / 2.0f;
-            float playerBottom = player.transform.y + player.height / 2.0f;
-
-            float blockLeft   = block.transform.x - block.width / 2.0f;
-            float blockRight  = block.transform.x + block.width / 2.0f;
-            float blockTop    = block.transform.y - block.height / 2.0f;
-            float blockBottom = block.transform.y + block.height / 2.0f;
-
-            float player1Left   = player1.transform.x - player1.width / 2.0f;
-            float player1Right  = player1.transform.x + player1.width / 2.0f;
-            float player1Top    = player1.transform.y - player1.height / 2.0f;
-            float player1Bottom = player1.transform.y + player1.height / 2.0f;
-
-            
-
-            bool overlap =
-                playerRight  > blockLeft  &&
-                playerLeft   < blockRight &&
-                playerBottom > blockTop   &&
-                playerTop    < blockBottom;
-            bool overlap1 =
-                player1Right  > blockLeft  &&
-                player1Left   < blockRight &&
-                player1Bottom > blockTop   &&
-                player1Top    < blockBottom;
-
-            bool overlapplayer =
-                playerRight > player1Left &&
-                playerLeft < player1Right &&            
-                playerBottom > player1Top &&
-                playerTop < player1Bottom;
-
-            if (overlap)
-            {
-                if (player.velocityX > 0)
-                {
-                    player.transform.x = blockLeft - player.width / 2.0f;
-                }
-                else if (player.velocityX < 0)
-                {
-                    player.transform.x = blockRight + player.width / 2.0f;
-                }
-
-                player.velocityX = 0;
-            }
-            if (overlap1)
-            {
-                if (player1.velocityX > 0)
-                {
-                    player1.transform.x = blockLeft - player1.width / 2.0f;
-                }
-                else if (player1.velocityX < 0)
-                {
-                    player1.transform.x = blockRight + player1.width / 2.0f;
-                }
-
-                player1.velocityX = 0;
-            }
-            
-            if (overlapplayer)
-            {
-                if (player.velocityX > 0)
-                {
-                   player.transform.x = player1Left - player.width / 2.0f;
-                }
-                else if (player.velocityX < 0)
-                {
-                    player.transform.x = player1Right + player.width / 2.0f;
-                }
-
-                player.velocityX = 0;
-            }
-        }
-        
-        player.transform.y += player.velocityY * deltaTime;
-        player1.transform.y += player1.velocityY * deltaTime;
-
-        for (const Block& block : blocks){
-            
-            float playerLeft   = player.transform.x - player.width / 2.0f;
-            float playerRight  = player.transform.x + player.width / 2.0f;
-            float playerTop    = player.transform.y - player.height / 2.0f;
-            float playerBottom = player.transform.y + player.height / 2.0f;
-
-            float blockLeft   = block.transform.x - block.width / 2.0f;
-            float blockRight  = block.transform.x + block.width / 2.0f;
-            float blockTop    = block.transform.y - block.height / 2.0f;
-            float blockBottom = block.transform.y + block.height / 2.0f;
-
-            float player1Left   = player1.transform.x - player1.width / 2.0f;
-            float player1Right  = player1.transform.x + player1.width / 2.0f;
-            float player1Top    = player1.transform.y - player1.height / 2.0f;
-            float player1Bottom = player1.transform.y + player1.height / 2.0f;
-
+            if(isOverlapping(player, block)){
+                float blockTop = block.transform.y - block.height / 2.0f;
+                float blockBottom = block.transform.y + block.height / 2.0f;        
             
 
-            bool overlap =
-                playerRight  > blockLeft  &&
-                playerLeft   < blockRight &&
-                playerBottom > blockTop   &&
-                playerTop    < blockBottom;
-
-            bool overlapplayer =
-                playerRight > player1Left &&
-                playerLeft < player1Right &&            
-                playerBottom > player1Top &&
-                playerTop < player1Bottom;
-            
-
-            bool overlap1 =
-                player1Right  > blockLeft  &&
-                player1Left   < blockRight &&
-                player1Bottom > blockTop   &&   
-                player1Top    < blockBottom;
-
-                   
-
-            if(overlap)
-            {   
-                
-                if (player.velocityY >= 0)
+                if(player.velocityY >= 0)
                 {
                     player.transform.y = blockTop - player.height / 2.0f;
                     player.velocityY = 0;
-                    isGrounded = true;
-                } 
-               
-                else if (player.velocityY < 0)
+                    player.isGrounded = true;
+                }
+                else
                 {
                     player.transform.y = blockBottom + player.height / 2.0f;
-                    player.velocityY = 0;  
-                }
-                
-                 
-            }
-            if(overlap1)
-            {   
-                
-                if (player1.velocityY >= 0)
-                {
-                    player1.transform.y = blockTop - player1.height / 2.0f;
-                    player1.velocityY = 0;
-                    isGrounded = true;
-                } 
-               
-                else if (player1.velocityY < 0)
-                {
-                    player1.transform.y = blockBottom + player1.height / 2.0f;
-                    player1.velocityY = 0;  
-                }
-                
-                 
-            }
+                    player.velocityY = 0;
 
-            if(overlapplayer)
-            {   
-                
-                if (player.velocityY >= 0)
-                {
-                    player.transform.y = player1Top - player.height/2;
-                    
-                } 
-               
-                else if (player.velocityY < 0)
-                {
-                   player.transform.y = player1Top - player.height/2;
-                    
                 }
-                player.velocityY = 0;  
-                
-                 
             }
-       }
+            }
+        }
+
+        for (int i = 0; i < players.size(); i++)
+        {
+            for (int j = i + 1; j < players.size(); j++)
+            {
+              
+                Player& a = players[i];
+                Player& b = players[j];
+
+                if (isOverlappingPlayer(a, b))
+                {
+                    // simple separation (you can improve later)
+                    if (a.velocityY >= 0)
+                    {
+                        float bTop = b.transform.y - b.height / 2.0f;
+                        a.transform.y = bTop - a.height / 2.0f;
+                        a.velocityY = 0;
+                    }
+                }
+            }
+        }
+
         
-        float damping = 3.0f;
-        player.velocityX -= player.velocityX * damping * deltaTime;
-        player.velocityY -= player.velocityY * damping * deltaTime;
-        player1.velocityX -= player1.velocityX * damping * deltaTime;
-        player1.velocityY -= player1.velocityY * damping * deltaTime;
-        if(player.transform.x < leftBoundary)
-            player.transform.x = leftBoundary;
-        if(player.transform.x > rightBoundary)
-            player.transform.x = rightBoundary;
-        if(player.transform.y < topBoundary)
-        {
-          player.transform.y = topBoundary;
-          player.velocityY = 0;
-        }
-        if(player.transform.y > bottomBoundary)
-        {
-           player.transform.y = bottomBoundary;
-           player.velocityY = 0;
-           isGrounded = true;
-        }
-        if(player1.transform.x < leftBoundary)
-            player1.transform.x = leftBoundary;
-        if(player1.transform.x > rightBoundary)
-            player1.transform.x = rightBoundary;
-        if(player1.transform.y < topBoundary)
-        {
-          player1.transform.y = topBoundary;
-          player1.velocityY = 0;
-        }
-        if(player1.transform.y > bottomBoundary)
-        {
-           player1.transform.y = bottomBoundary;
-           player1.velocityY = 0;
-           isGrounded = true;
-        }
+       
+
     
             SDL_SetRenderDrawColor(renderer, 0, 0, 0, 255);
             SDL_RenderClear(renderer);
@@ -604,16 +451,16 @@ int main()
 
         
         SDL_Rect Rect;
-        Rect.x = player.transform.x - player.width/2;
-        Rect.y = player.transform.y - player.height/2;
-        Rect.w = player.width;
-        Rect.h = player.height;
+        Rect.x = players[0].transform.x - players[0].width/2;
+        Rect.y = players[0].transform.y - players[0].height/2;
+        Rect.w = players[0].width;
+        Rect.h = players[0].height;
 
         SDL_Rect enemyRect;
-        enemyRect.x = player1.transform.x - player1.width/2;
-        enemyRect.y = player1.transform.y - player1.height/2;
-        enemyRect.w = player1.width;
-        enemyRect.h = player1.height;
+        enemyRect.x = players[1].transform.x - players[1].width/2;
+        enemyRect.y = players[1].transform.y - players[1].height/2;
+        enemyRect.w = players[1].width;
+        enemyRect.h = players[1].height;
 
     SDL_SetRenderDrawColor(renderer, 255,255,0,255);
 
