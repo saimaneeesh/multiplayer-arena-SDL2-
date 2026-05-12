@@ -11,6 +11,7 @@
 #include "transform.h"
 #include "bullet.h"
 #include "input.h"
+#include "state.h"
 
 
 bool isOverlapping(const Player& a, const Block& b)
@@ -51,59 +52,57 @@ bool isOverlappingPlayer(const Player& a, const Player& b)
  
 int main()
 {
-    std::vector<Player> players;
-    std::vector<Block> blocks;
-    std::vector<Bullet> bullets;
+    GameState state;
     
     Block block1;
     Block block2;
     Block block3;
     Block block4;
 
-    players.emplace_back();
-    players.emplace_back();
-    players[0].health = 100;
-    players[0].transform.x = 400;
-    players[0].transform.y = 300;
-    players[0].width = 10;
-    players[0].height = 10;
-    players[0].velocityX = 0;
-    players[0].velocityY = 0;
+    state.players.emplace_back();
+    state.players.emplace_back();
+    state.players[0].health = 100;
+    state.players[0].transform.x = 400;
+    state.players[0].transform.y = 300;
+    state.players[0].width = 10;
+    state.players[0].height = 10;
+    state.players[0].velocityX = 0;
+    state.players[0].velocityY = 0;
 
-    players[1].health = 100;
-    players[1].transform.x = 600;
-    players[1].transform.y = 200;
-    players[1].width = 10;
-    players[1].height = 10;
-    players[1].velocityX = 0;
-    players[1].velocityY = 0;
+    state.players[1].health = 100;
+    state.players[1].transform.x = 600;
+    state.players[1].transform.y = 200;
+    state.players[1].width = 10;
+    state.players[1].height = 10;
+    state.players[1].velocityX = 0;
+    state.players[1].velocityY = 0;
     
-    block1.transform.x = 400;
-    block1.transform.y = 200;
-    block1.width = 150;
-    block1.height = 20;
+    state.blocks.emplace_back();
+    state.blocks[0].transform.x = 400;
+    state.blocks[0].transform.y = 200;
+    state.blocks[0].width = 150;
+    state.blocks[0].height = 20;
 
-    block2.transform.x = 600;
-    block2.transform.y = 300;
-    block2.width = 150;
-    block2.height = 20;
+    state.blocks.emplace_back();
+    state.blocks[1].transform.x = 600;
+    state.blocks[1].transform.y = 300;
+    state.blocks[1].width = 150;
+    state.blocks[1].height = 20;
 
-    block3.transform.x = 500;
-    block3.transform.y = 400;
-    block3.width = 100;
-    block3.height = 20;
+    state.blocks.emplace_back();
+    state.blocks[2].transform.x = 500;
+    state.blocks[2].transform.y = 400;
+    state.blocks[2].width = 100;
+    state.blocks[2].height = 20;
 
-    block4.transform.x = 200;
-    block4.transform.y = 500;
-    block4.width = 150;
-    block4.height = 20;
+    state.blocks.emplace_back();
+    state.blocks[3].transform.x = 200;
+    state.blocks[3].transform.y = 500;
+    state.blocks[3].width = 150;
+    state.blocks[3].height = 20;
 
-    blocks.push_back(block1);
-    blocks.push_back(block2);
-    blocks.push_back(block3);       
-    blocks.push_back(block4);
 
-    std::vector<Input> inputs(players.size());
+    std::vector<Input> inputs(state.players.size());
 
     float gravity = 1500.0f;
     float thrust = 3500.0f;
@@ -161,11 +160,11 @@ int main()
 
         const Uint8* keystate = SDL_GetKeyboardState(NULL);
 
-        for(auto& player : players)
+        for(auto& player : state.players)
         {
             player.isGrounded = false;
         }
-        for(auto& player : players)
+        for(auto& player : state.players)
         {
             player.shootTimer -= deltaTime;
         }
@@ -188,13 +187,13 @@ int main()
         inputs[1].right = keystate[SDL_SCANCODE_RIGHT];
         inputs[1].shoot = keystate[SDL_SCANCODE_R];
 
-        for(int i = 0; i < players.size(); i++)
+        for(int i = 0; i < state.players.size(); i++)
         {
-            if(inputs[i].shoot && players[i].shootTimer <= 0.0f)
+            if(inputs[i].shoot && state.players[i].shootTimer <= 0.0f)
             {
                 Bullet b;
-                float dirX = mouseX - players[i].transform.x;
-                float dirY = mouseY - players[i].transform.y;
+                float dirX = mouseX - state.players[i].transform.x;
+                float dirY = mouseY - state.players[i].transform.y;
 
                 float length = sqrt(dirX * dirX + dirY * dirY);
 
@@ -205,15 +204,15 @@ int main()
                     dirY /= length;
                 }
 
-                b.transform.x = players[i].transform.x;
-                b.transform.y = players[i].transform.y; 
+                b.transform.x = state.players[i].transform.x;
+                b.transform.y = state.players[i].transform.y; 
 
                 b.velocityX = dirX * bulletSpeed;
                 b.velocityY = dirY * bulletSpeed;
                 b.ownerId = i;
                 
-                bullets.push_back(b);
-                players[i].shootTimer = shootCooldown;   
+                state.bullets.push_back(b);
+                state.players[i].shootTimer = shootCooldown;   
             }
         }
     
@@ -226,33 +225,33 @@ int main()
             zerogravity = false;
         }
 
-        for(int i = 0; i<players.size(); i++){
+        for(int i = 0; i<state.players.size(); i++){
 
             if(!zerogravity){
                 if(inputs[i].up){
-                    players[i].velocityY -= thrust * deltaTime;
+                    state.players[i].velocityY -= thrust * deltaTime;
                 }
                 if(inputs[i].down){
-                    players[i].velocityY += thrust * deltaTime;
+                    state.players[i].velocityY += thrust * deltaTime;
                 }
                 if(inputs[i].left){
-                    players[i].velocityX -= thrust * deltaTime;
+                    state.players[i].velocityX -= thrust * deltaTime;
                 }   
                 if(inputs[i].right){
-                    players[i].velocityX += thrust * deltaTime;
+                    state.players[i].velocityX += thrust * deltaTime;
                 }
             }
         }
              
-        for (int i = 0; i < bullets.size(); i++)
+        for (int i = 0; i < state.bullets.size(); i++)
         {
-            Bullet &b = bullets[i];
+            Bullet &b = state.bullets[i];
             b.transform.x += b.velocityX * deltaTime;
             b.transform.y += b.velocityY * deltaTime;
         
             bool bulletDead = false;
 
-            for (const Block& block : blocks)
+            for (const Block& block : state.blocks)
             {
                 float bulletLeft   = b.transform.x - b.size/2;
                 float bulletRight  = b.transform.x + b.size/2;
@@ -285,106 +284,113 @@ int main()
             {
                 bulletDead = true;
             }
-            for(auto& player : players)
-            {   
-            float enemyLeft   = player.transform.x - player.width/2;
-            float enemyRight  = player.transform.x + player.width/2;
-            float enemyTop    = player.transform.y - player.height/2;
-            float enemyBottom = player.transform.y + player.height/2;
-            
-            float bulletLeft   = b.transform.x - b.size/2;
-            float bulletRight  = b.transform.x + b.size/2;
-            float bulletTop    = b.transform.y - b.size/2;
-            float bulletBottom = b.transform.y + b.size/2;
+            for(int j = 0; j < state.players.size(); j++)
+            {
+                if(j == b.ownerId)
+                    continue;
 
-            bool hit =
-                bulletRight  > enemyLeft &&
-                bulletLeft   < enemyRight &&
-                bulletBottom > enemyTop &&
-                bulletTop    < enemyBottom;     
-            
-            if(hit)
-            {
-                player.health -= 10;
-                bulletDead = true;
-            }  
-            if(player.health <= 0)
-            {
-                player.transform.x = 400;
-                player.transform.y = 300;
-                player.health = 100;
-               players[b.ownerId].score += 10;
-            }
+                Player& player = state.players[j];
+
+                float enemyLeft   = player.transform.x - player.width/2;
+                float enemyRight  = player.transform.x + player.width/2;
+                float enemyTop    = player.transform.y - player.height/2;
+                float enemyBottom = player.transform.y + player.height/2;
+
+                float bulletLeft   = b.transform.x - b.size/2;
+                float bulletRight  = b.transform.x + b.size/2;
+                float bulletTop    = b.transform.y - b.size/2;
+                float bulletBottom = b.transform.y + b.size/2;
+
+                bool hit =
+                    bulletRight  > enemyLeft &&
+                    bulletLeft   < enemyRight &&
+                    bulletBottom > enemyTop &&
+                    bulletTop    < enemyBottom;
+
+                if(hit)
+                {
+                    player.health -= 10;
+                    bulletDead = true;
+                }
+
+                if(player.health <= 0)
+                {
+                    player.transform.x = 400;
+                    player.transform.y = 300;
+                    player.health = 100;
+
+                    state.players[b.ownerId].score += 10;
+                }
             }
             if (bulletDead)
                 {
-                    bullets.erase(bullets.begin() + i);
+                    state.bullets.erase(state.bullets.begin() + i);
                     i--;
                 }
 
         }
-for(auto& player : players)
-{
-    if(!zerogravity)
-        player.velocityY += gravity * deltaTime;
-}
-        float maxSpeedX = 600.0f;
-        float maxSpeedY = 800.0f;
+        for(auto& player : state.players)
+        {
+            if(!zerogravity)
+                player.velocityY += gravity * deltaTime;
+        }
+                float maxSpeedX = 600.0f;
+                float maxSpeedY = 800.0f;
 
-for(auto& player : players)
-{
-    if(player.velocityX > maxSpeedX) player.velocityX = maxSpeedX;
-    if(player.velocityX < -maxSpeedX) player.velocityX = -maxSpeedX;
+        for(auto& player : state.players)
+        {
+            if(player.velocityX > maxSpeedX) player.velocityX = maxSpeedX;
+            if(player.velocityX < -maxSpeedX) player.velocityX = -maxSpeedX;
 
-    if(player.velocityY > maxSpeedY) player.velocityY = maxSpeedY;
-    if(player.velocityY < -maxSpeedY) player.velocityY = -maxSpeedY;
-}
-  
-        for(auto& player : players)
-{
-    // movement
-    player.transform.x += player.velocityX * deltaTime;
-    player.transform.y += player.velocityY * deltaTime;
+            if(player.velocityY > maxSpeedY) player.velocityY = maxSpeedY;
+            if(player.velocityY < -maxSpeedY) player.velocityY = -maxSpeedY;
+        }
+        
+                for(auto& player : state.players)
+        {
+            // movement
+            player.transform.x += player.velocityX * deltaTime;
+            player.transform.y += player.velocityY * deltaTime;
 
-    // damping
-    player.velocityX -= player.velocityX * damping * deltaTime;
-    player.velocityY -= player.velocityY * damping * deltaTime;
+            // damping
+            player.velocityX -= player.velocityX * damping * deltaTime;
+            player.velocityY -= player.velocityY * damping * deltaTime;
 
-    // boundaries
-    float leftBoundary   = arena.x + player.width / 2;
-    float rightBoundary  = arena.x + arena.w - player.width / 2;
-    float topBoundary    = arena.y + player.height / 2;
-    float bottomBoundary = arena.y + arena.h - player.height / 2;
+            // boundaries
+            float leftBoundary   = arena.x + player.width / 2;
+            float rightBoundary  = arena.x + arena.w - player.width / 2;
+            float topBoundary    = arena.y + player.height / 2;
+            float bottomBoundary = arena.y + arena.h - player.height / 2;
 
-    if(player.transform.x < leftBoundary)
-    {
-        player.transform.x = leftBoundary;
-        player.velocityX = 0;
-    }
+            if(player.transform.x < leftBoundary)
+            {
+                player.transform.x = leftBoundary;
+                player.velocityX = 0;
+            }
 
-    if(player.transform.x > rightBoundary)
-    {
-        player.transform.x = rightBoundary;
-        player.velocityX = 0;
-    }
+            if(player.transform.x > rightBoundary)
+            {
+                player.transform.x = rightBoundary;
+                player.velocityX = 0;
+            }
 
-    if(player.transform.y < topBoundary)
-    {
-        player.transform.y = topBoundary;
-        player.velocityY = 0;
-    }
+            if(player.transform.y < topBoundary)
+            {
+                player.transform.y = topBoundary;
+                player.velocityY = 0;
+            }
 
-    if(player.transform.y > bottomBoundary)
-    {
-        player.transform.y = bottomBoundary;
-        player.velocityY = 0;
-        player.isGrounded = true;
-    }
-}
+            if(player.transform.y > bottomBoundary)
+            {
+                player.transform.y = bottomBoundary;
+                player.velocityY = 0;
+                player.isGrounded = true;
+            }
+        }
 
-        for(auto& player : players)
+        for(auto& player : state.players)
         {   
-            for (const Block& block : blocks){
+            for (const Block& block : state.blocks){
             
             if(isOverlapping(player, block)){
                 float blockTop = block.transform.y - block.height / 2.0f;
@@ -407,13 +413,13 @@ for(auto& player : players)
             }
         }
 
-        for (int i = 0; i < players.size(); i++)
+        for (int i = 0; i < state.players.size(); i++)
         {
-            for (int j = i + 1; j < players.size(); j++)
+            for (int j = i + 1; j < state.players.size(); j++)
             {
               
-                Player& a = players[i];
-                Player& b = players[j];
+                Player& a = state.players[i];
+                Player& b = state.players[j];
 
                 if (isOverlappingPlayer(a, b))
                 {
@@ -451,16 +457,16 @@ for(auto& player : players)
 
         
         SDL_Rect Rect;
-        Rect.x = players[0].transform.x - players[0].width/2;
-        Rect.y = players[0].transform.y - players[0].height/2;
-        Rect.w = players[0].width;
-        Rect.h = players[0].height;
+        Rect.x = state.players[0].transform.x - state.players[0].width/2;
+        Rect.y = state.players[0].transform.y - state.players[0].height/2;
+        Rect.w = state.players[0].width;
+        Rect.h = state.players[0].height;
 
         SDL_Rect enemyRect;
-        enemyRect.x = players[1].transform.x - players[1].width/2;
-        enemyRect.y = players[1].transform.y - players[1].height/2;
-        enemyRect.w = players[1].width;
-        enemyRect.h = players[1].height;
+        enemyRect.x = state.players[1].transform.x - state.players[1].width/2;
+        enemyRect.y = state.players[1].transform.y - state.players[1].height/2;
+        enemyRect.w = state.players[1].width;
+        enemyRect.h = state.players[1].height;
 
     SDL_SetRenderDrawColor(renderer, 255,255,0,255);
 
@@ -477,7 +483,7 @@ for(auto& player : players)
         SDL_RenderDrawRect(renderer, &outlineRect);
         
     
-        for (const Block& block : blocks)
+        for (const Block& block : state.blocks)
         {
              SDL_Rect blockRect;
              blockRect.x = block.transform.x - block.width / 2;
@@ -488,7 +494,7 @@ for(auto& player : players)
              SDL_SetRenderDrawColor(renderer, 0x00, 0x00, 0xFF, 0xFF);
              SDL_RenderFillRect(renderer, &blockRect);
         }
-        for (const Bullet &b : bullets)
+        for (const Bullet &b : state.bullets)
             {
                 SDL_Rect bulletRect;
 
@@ -500,8 +506,8 @@ for(auto& player : players)
                 SDL_SetRenderDrawColor(renderer, 255, 50, 50, 255);
                 SDL_RenderFillRect(renderer, &bulletRect);
             }
-        bullets.erase(
-            std::remove_if(bullets.begin(), bullets.end(),
+        state.bullets.erase(
+            std::remove_if(state.bullets.begin(), state.bullets.end(),
                 [&](Bullet &b)
                 {
                     return b.transform.x < 0 ||
@@ -509,7 +515,7 @@ for(auto& player : players)
                         b.transform.y < 0 ||
                         b.transform.y > 600;
                 }),
-            bullets.end());
+            state.bullets.end());
        
 
         SDL_RenderPresent(renderer);
